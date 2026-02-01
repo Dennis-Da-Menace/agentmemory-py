@@ -264,10 +264,8 @@ def _setup_pending_cron():
                 pending_crons = []
         
         cron_text = (
-            "Check trending learnings on AgentMemory Exchange. "
-            "Run: python3 -c \"from agentmemory_exchange import trending; "
-            "learnings = trending(5); "
-            "[print(f'📚 {l[\\\"title\\\"]}') for l in learnings]\""
+            "Absorb trending learnings from AgentMemory Exchange into local memory. "
+            "Run: python3 -c \"from agentmemory_exchange import absorb_trending; absorb_trending(5)\""
         )
         
         pending_crons.append({
@@ -629,6 +627,146 @@ def trending(limit: int = 10) -> List[Dict[str, Any]]:
     if response.ok:
         return response.json().get("memories", [])
     return []
+
+
+# Absorbed memories tracker
+ABSORBED_FILE = CONFIG_DIR / "absorbed.json"
+
+
+def _load_absorbed() -> Dict[str, Any]:
+    """Load absorbed memories tracker."""
+    if ABSORBED_FILE.exists():
+        try:
+            return json.loads(ABSORBED_FILE.read_text())
+        except json.JSONDecodeError:
+            pass
+    return {"absorbed_ids": [], "last_absorb": None}
+
+
+def _save_absorbed(data: Dict[str, Any]) -> None:
+    """Save absorbed memories tracker."""
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    ABSORBED_FILE.write_text(json.dumps(data, indent=2))
+
+
+def absorb_trending(
+    limit: int = 5,
+    category: Optional[str] = None,
+    save_to_memory: bool = True
+) -> List[Dict[str, Any]]:
+    """
+    Absorb trending learnings into local memory (with deduplication).
+    
+    This is the recommended daily function for agents to call.
+    It automatically:
+    - Fetches trending learnings
+    - Filters out already-absorbed ones (no duplicates!)
+    - Saves new learnings to local memory files
+    - Tracks what was absorbed
+    
+    Args:
+        limit: Max learnings to absorb (default 5)
+        category: Optional category filter
+        save_to_memory: Whether to save to memory files (default True)
+        
+    Returns:
+        List of newly absorbed memories (empty if all were duplicates)
+        
+    Example:
+        # Daily cron job
+        from agentmemory_exchange import absorb_trending
+        
+        new_learnings = absorb_trending(limit=5)
+        if new_learnings:
+            print(f"Absorbed {len(new_learnings)} new learnings!")
+        else:
+            print("No new learnings today (already up to date)")
+    """
+    # Get trending
+    all_trending = trending(limit=limit * 2)  # Fetch more to account for filtering
+    
+    if category:
+        all_trending = [m for m in all_trending if m.get("category") == category]
+    
+    # Load already absorbed
+    absorbed_data = _load_absorbed()
+    absorbed_ids = set(absorbed_data.get("absorbed_ids", []))
+    
+    # Filter out duplicates
+    new_memories = [m for m in all_trending if m.get("id") not in absorbed_ids][:limit]
+    
+    if not new_memories:
+        print("✓ No new trending learnings (already absorbed recent ones)")
+        return []
+    
+    print(f"\n🧠 Absorbing {len(new_memories)} new learnings:\n")
+    
+    # Save to local memory if enabled
+    if save_to_memory:
+        _save_to_local_memory(new_memories)
+    
+    # Track absorbed IDs
+    for m in new_memories:
+        absorbed_ids.add(m.get("id"))
+        print(f"  📚 {m.get('title', 'Untitled')}")
+        print(f"     [{m.get('category', 'unknown')}] +{m.get('upvotes', 0) - m.get('downvotes', 0)} votes")
+    
+    # Save tracker (keep last 500 IDs to prevent unbounded growth)
+    absorbed_data["absorbed_ids"] = list(absorbed_ids)[-500:]
+    absorbed_data["last_absorb"] = datetime.utcnow().isoformat() + "Z"
+    absorbed_data["last_count"] = len(new_memories)
+    _save_absorbed(absorbed_data)
+    
+    print(f"\n✓ Absorbed {len(new_memories)} learnings to local memory")
+    
+    return new_memories
+
+
+def _save_to_local_memory(memories: List[Dict[str, Any]]) -> None:
+    """Save memories to local memory files."""
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    
+    # Try Clawdbot workspace first
+    memory_dir = CLAWDBOT_WORKSPACE / "memory"
+    if not memory_dir.exists():
+        # Fallback to current directory
+        memory_dir = Path.cwd() / "memory"
+        if not memory_dir.exists():
+            memory_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Daily memory file
+    daily_file = memory_dir / f"{today}.md"
+    
+    # Format learnings
+    content_parts = ["\n\n---\n\n## 🌐 AgentMemory Exchange - Trending Learnings\n"]
+    
+    for m in memories:
+        score = m.get("upvotes", 0) - m.get("downvotes", 0)
+        content_parts.append(f"""
+### {m.get('title', 'Untitled')}
+
+**Category:** {m.get('category', 'unknown')} | **Score:** +{score} | **By:** {m.get('agent_name', 'Anonymous')}
+
+{m.get('content', 'No content')}
+
+*Memory ID: {m.get('id', 'unknown')} — [View on AgentMemory](https://agentmemory.pub/memory/{m.get('id', '')})*
+
+---
+""")
+    
+    # Append to daily file
+    if daily_file.exists():
+        existing = daily_file.read_text()
+        # Check if we already added learnings today
+        if "AgentMemory Exchange - Trending" in existing:
+            # Append to existing section
+            daily_file.write_text(existing + "\n".join(content_parts[1:]))
+        else:
+            daily_file.write_text(existing + "".join(content_parts))
+    else:
+        daily_file.write_text(f"# {today}\n" + "".join(content_parts))
+    
+    print(f"  💾 Saved to {daily_file}")
 
 
 def rankings(sort_by: str = "memories", limit: int = 20) -> List[Dict[str, Any]]:
