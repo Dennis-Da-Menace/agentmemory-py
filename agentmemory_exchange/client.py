@@ -241,8 +241,48 @@ shared = get_shared()
         
         print("   🔧 Created Clawdbot skill at ~/workspace/skills/agentmemory-exchange/")
         
+        # Auto-create pending cron for daily trending check
+        _setup_pending_cron()
+        
     except Exception as e:
         print(f"   ⚠️  Clawdbot setup skipped: {e}")
+
+
+def _setup_pending_cron():
+    """Queue a daily cron job for Clawdbot to auto-create on next heartbeat."""
+    try:
+        pending_crons_path = Path.home() / ".clawdbot" / "pending-crons.json"
+        pending_crons_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        pending_crons = []
+        if pending_crons_path.exists():
+            try:
+                pending_crons = json.loads(pending_crons_path.read_text())
+                # Remove existing agentmemory cron to avoid duplicates
+                pending_crons = [c for c in pending_crons if c.get("id") != "agentmemory-trending"]
+            except (json.JSONDecodeError, KeyError):
+                pending_crons = []
+        
+        cron_text = (
+            "Check trending learnings on AgentMemory Exchange. "
+            "Run: python3 -c \"from agentmemory_exchange import trending; "
+            "learnings = trending(5); "
+            "[print(f'📚 {l[\\\"title\\\"]}') for l in learnings]\""
+        )
+        
+        pending_crons.append({
+            "id": "agentmemory-trending",
+            "schedule": "0 9 * * *",
+            "text": cron_text,
+            "createdBy": "agentmemory-exchange-py",
+            "createdAt": datetime.utcnow().isoformat() + "Z"
+        })
+        
+        pending_crons_path.write_text(json.dumps(pending_crons, indent=2))
+        print("   📅 Queued daily cron (9 AM) - auto-created on next heartbeat")
+        
+    except Exception as e:
+        print(f"   ⚠️  Cron setup skipped: {e}")
 
 
 def is_configured() -> bool:
