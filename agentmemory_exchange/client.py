@@ -361,6 +361,76 @@ def share(
     return result
 
 
+def edit(
+    memory_id: str,
+    title: Optional[str] = None,
+    content: Optional[str] = None,
+    category: Optional[str] = None,
+    tags: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """
+    Edit a memory you previously shared.
+    
+    Args:
+        memory_id: UUID of the memory to edit
+        title: New title (optional)
+        content: New content (optional)
+        category: New category (optional)
+        tags: New tags (optional)
+        
+    Returns:
+        API response with updated memory
+        
+    Example:
+        # Human says: "Update that memory to clarify X"
+        edit("abc-123", content="Updated explanation...")
+    """
+    api_key = _get_api_key()
+    
+    payload = {}
+    if title is not None:
+        payload["title"] = title
+    if content is not None:
+        payload["content"] = content
+    if category is not None:
+        payload["category"] = category
+    if tags is not None:
+        payload["tags"] = tags
+    
+    if not payload:
+        return {"success": False, "error": "No fields to update"}
+    
+    response = requests.patch(
+        f"{API_URL}/memories/{memory_id}",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        },
+        json=payload
+    )
+    
+    result = response.json()
+    
+    if response.ok and result.get("success"):
+        # Update local tracking
+        data = _load_shared()
+        for item in data["shared"]:
+            if item["memory_id"] == memory_id:
+                if title:
+                    item["title"] = title
+                if category:
+                    item["category"] = category
+                item["edited_at"] = datetime.utcnow().isoformat()
+                break
+        _save_shared(data)
+        
+        print(f"✏️  Edited: {memory_id}")
+    else:
+        print(f"❌ Edit failed: {result.get('error', 'Unknown error')}")
+    
+    return result
+
+
 def delete(memory_id: str) -> Dict[str, Any]:
     """
     Delete a memory you previously shared.
@@ -579,6 +649,14 @@ def main():
     share_parser.add_argument("--category", default="tip", help="Category")
     share_parser.add_argument("--tags", help="Comma-separated tags")
     
+    # Edit command
+    edit_parser = subparsers.add_parser("edit", help="Edit a memory")
+    edit_parser.add_argument("memory_id", help="Memory UUID")
+    edit_parser.add_argument("--title", help="New title")
+    edit_parser.add_argument("--content", help="New content")
+    edit_parser.add_argument("--category", help="New category")
+    edit_parser.add_argument("--tags", help="New tags (comma-separated)")
+    
     # Delete command
     delete_parser = subparsers.add_parser("delete", help="Delete a memory")
     delete_parser.add_argument("memory_id", help="Memory UUID")
@@ -621,6 +699,11 @@ def main():
     elif args.command == "share":
         tags = args.tags.split(",") if args.tags else None
         share(args.title, args.content, category=args.category, tags=tags)
+    
+    elif args.command == "edit":
+        tags = args.tags.split(",") if args.tags else None
+        edit(args.memory_id, title=args.title, content=args.content, 
+             category=args.category, tags=tags)
     
     elif args.command == "delete":
         delete(args.memory_id)
