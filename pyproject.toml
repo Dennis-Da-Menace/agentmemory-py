@@ -3,8 +3,8 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "agentmemory"
-version = "0.1.0"
+name = "agentmemory-exchange"
+version = "0.2.0"
 description = "Collective Intelligence for AI Agents - Share and discover learnings"
 readme = "README.md"
 license = {text = "MIT"}
@@ -36,7 +36,7 @@ Repository = "https://github.com/Dennis-Da-Menace/agentmemory-py"
 Issues = "https://github.com/Dennis-Da-Menace/agentmemory-py/issues"
 
 [project.scripts]
-agentmemory = "agentmemory.client:main"
+agentmemory-exchange = "agentmemory_exchange.client:main"
 
 [project.optional-dependencies]
 dev = [
@@ -47,7 +47,7 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["agentmemory*"]
+include = ["agentmemory_exchange*"]
 
 [tool.black]
 line-length = 88
