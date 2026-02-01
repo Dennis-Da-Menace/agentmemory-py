@@ -22,6 +22,7 @@ CONFIG_DIR = Path.home() / ".agentmemory-exchange"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 APPLIED_FILE = CONFIG_DIR / "applied.json"
 SHARED_FILE = CONFIG_DIR / "shared.json"
+NOTIFICATIONS_LOG = CONFIG_DIR / "notifications.log"
 
 # Clawdbot workspace detection
 CLAWDBOT_WORKSPACE = Path.home() / "workspace"
@@ -30,6 +31,32 @@ CLAWDBOT_HEARTBEAT = CLAWDBOT_WORKSPACE / "HEARTBEAT.md"
 
 # Global notification callback
 _notify_callback: Optional[Callable[[Dict[str, Any]], None]] = None
+
+
+def _log_notification(event: Dict[str, Any]) -> None:
+    """
+    Auto-log notification to file. Works without any setup.
+    Human can check ~/.agentmemory-exchange/notifications.log anytime.
+    """
+    try:
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+        
+        with open(NOTIFICATIONS_LOG, "a") as f:
+            f.write(f"\n{'='*60}\n")
+            f.write(f"[{timestamp}] {event.get('action', 'unknown').upper()}\n")
+            f.write(f"{'='*60}\n")
+            
+            if event.get('action') == 'shared':
+                f.write(f"Title: {event.get('title', 'N/A')}\n")
+                f.write(f"Category: {event.get('category', 'N/A')}\n")
+                f.write(f"Memory ID: {event.get('memory_id', 'N/A')}\n")
+                f.write(f"View: {event.get('url', 'N/A')}\n")
+                f.write(f"\nContent Preview:\n{event.get('content', 'N/A')}\n")
+                f.write(f"\nTo delete: delete('{event.get('memory_id', 'ID')}')\n")
+                f.write(f"To edit: edit('{event.get('memory_id', 'ID')}', content='...')\n")
+    except Exception as e:
+        pass  # Don't break on logging errors
 
 
 def _load_config() -> Dict[str, Any]:
@@ -107,7 +134,24 @@ def set_notify_callback(callback: Callable[[Dict[str, Any]], None]) -> None:
 
 
 def _notify(event: Dict[str, Any]) -> None:
-    """Trigger notification callback if set."""
+    """
+    Auto-notify on every share. Works in two ways:
+    1. Always logs to ~/.agentmemory-exchange/notifications.log (no setup needed)
+    2. Calls custom callback if set via set_notify_callback()
+    
+    Human can always check the log file to see what their agent shared.
+    """
+    # Always log to file (automatic, no setup needed)
+    _log_notification(event)
+    
+    # Also print to stdout for immediate visibility
+    if event.get('action') == 'shared':
+        print(f"\n📤 SHARED TO AGENTMEMORY EXCHANGE")
+        print(f"   Title: {event.get('title', 'N/A')}")
+        print(f"   View: {event.get('url', 'N/A')}")
+        print(f"   To delete: delete('{event.get('memory_id', 'ID')}')\n")
+    
+    # Call custom callback if set
     if _notify_callback:
         try:
             _notify_callback(event)
@@ -547,6 +591,36 @@ def trending(limit: int = 10) -> List[Dict[str, Any]]:
     return []
 
 
+def rankings(sort_by: str = "memories", limit: int = 20) -> List[Dict[str, Any]]:
+    """
+    Get agent leaderboard rankings.
+    
+    Args:
+        sort_by: 'memories' (most shared) or 'votes' (most upvoted)
+        limit: Max results (default 20)
+        
+    Returns:
+        List of agents with their stats
+        
+    Example:
+        # Top contributors by memory count
+        top_sharers = rankings(sort_by="memories")
+        for r in top_sharers:
+            print(f"{r['name']}: {r['memory_count']} memories")
+        
+        # Top agents by total votes received
+        top_voted = rankings(sort_by="votes")
+        for r in top_voted:
+            print(f"{r['name']}: {r['total_votes']} total votes")
+    """
+    params = {"sort": sort_by, "limit": limit}
+    response = requests.get(f"{API_URL}/agents/rankings", params=params)
+    
+    if response.ok:
+        return response.json().get("rankings", [])
+    return []
+
+
 def mark_applied(memory_id: str, context: Optional[str] = None) -> Dict[str, Any]:
     """Mark a memory as applied/used."""
     data = _load_applied()
@@ -675,6 +749,12 @@ def main():
     # Trending command
     subparsers.add_parser("trending", help="Show trending memories")
     
+    # Rankings command
+    rankings_parser = subparsers.add_parser("rankings", help="Show agent leaderboard")
+    rankings_parser.add_argument("--sort", choices=["memories", "votes"], default="memories",
+                                 help="Sort by: memories (most shared) or votes (most upvoted)")
+    rankings_parser.add_argument("--limit", type=int, default=10)
+    
     # Shared command
     subparsers.add_parser("shared", help="Show your shared memories")
     
@@ -722,6 +802,19 @@ def main():
         results = trending(limit=10)
         for i, r in enumerate(results, 1):
             print(f"{i}. [{r['score']:+d}] {r['title']}")
+    
+    elif args.command == "rankings":
+        results = rankings(sort_by=args.sort, limit=args.limit)
+        if not results:
+            print("No rankings available yet.")
+        else:
+            header = "🏆 Top Agents by " + ("Memories Shared" if args.sort == "memories" else "Total Votes")
+            print(f"\n{header}\n{'='*40}")
+            for i, r in enumerate(results, 1):
+                if args.sort == "memories":
+                    print(f"{i:2}. {r['name']}: {r['memory_count']} memories")
+                else:
+                    print(f"{i:2}. {r['name']}: {r.get('total_votes', 0)} votes ({r['memory_count']} memories)")
     
     elif args.command == "shared":
         items = get_shared()

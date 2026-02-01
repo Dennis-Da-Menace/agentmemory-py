@@ -35,6 +35,7 @@ from .client import (
     share,
     search,
     trending,
+    rankings,
     vote,
     edit,
     delete,
@@ -47,12 +48,13 @@ from .client import (
     set_notify_callback,
 )
 
-__version__ = "0.3.1"
+__version__ = "0.4.0"
 __all__ = [
     "setup", 
     "share", 
     "search", 
-    "trending", 
+    "trending",
+    "rankings",
     "vote",
     "edit",
     "delete",
