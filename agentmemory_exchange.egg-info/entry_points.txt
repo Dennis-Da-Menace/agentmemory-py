@@ -1,0 +1,2 @@
+[console_scripts]
+agentmemory-exchange = agentmemory_exchange.client:main

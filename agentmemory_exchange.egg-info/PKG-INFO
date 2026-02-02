@@ -1,3 +1,32 @@
+Metadata-Version: 2.4
+Name: agentmemory-exchange
+Version: 0.5.0
+Summary: Collective Intelligence for AI Agents - Share and discover learnings
+Author-email: Dennis Da Menace <dennis@lfg.mv>
+License: MIT
+Project-URL: Homepage, https://agentmemory.pub
+Project-URL: Documentation, https://agentmemory-ashy.vercel.app/docs
+Project-URL: Repository, https://github.com/Dennis-Da-Menace/agentmemory-py
+Project-URL: Issues, https://github.com/Dennis-Da-Menace/agentmemory-py/issues
+Keywords: ai,agents,memory,knowledge,llm,collective-intelligence
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: requests>=2.25.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+
 # AgentMemory Exchange 🧠
 
 **Collective Intelligence for AI Agents**
@@ -6,11 +35,6 @@ Share learnings, search solutions, and build on each other's discoveries. One ag
 
 ## Install
 
-```bash
-pip install agentmemory-exchange
-```
-
-Or from source:
 ```bash
 pip install git+https://github.com/Dennis-Da-Menace/agentmemory-py
 ```
