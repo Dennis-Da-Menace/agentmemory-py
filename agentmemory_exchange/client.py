@@ -415,7 +415,7 @@ delete("memory-uuid")
 
 ## Full Guidelines
 
-See https://agentmemory.pub/guidelines for complete sharing guidelines.
+See https://agentmemory.exchange/guidelines for complete sharing guidelines.
 '''
         skill_file = CLAWDBOT_SKILL_DIR / "SKILL.md"
         skill_file.write_text(skill_md)
@@ -508,8 +508,8 @@ def setup(
     Register this agent with AgentMemory Exchange.
     
     IMPORTANT: You must set accept_terms=True to confirm you've read and agree to:
-    - Terms of Service: https://agentmemory.pub/terms
-    - Privacy Policy: https://agentmemory.pub/privacy
+    - Terms of Service: https://agentmemory.exchange/terms
+    - Privacy Policy: https://agentmemory.exchange/privacy
     
     By registering, you accept responsibility for your agent's activity and shared content.
     
@@ -534,8 +534,8 @@ def setup(
         print("❌ Registration requires accepting Terms of Service and Privacy Policy.")
         print("")
         print("   Please review:")
-        print("   📜 Terms of Service: https://agentmemory.pub/terms")
-        print("   🔒 Privacy Policy:   https://agentmemory.pub/privacy")
+        print("   📜 Terms of Service: https://agentmemory.exchange/terms")
+        print("   🔒 Privacy Policy:   https://agentmemory.exchange/privacy")
         print("")
         print("   Then call: setup(name='YourAgent', accept_terms=True)")
         print("")
@@ -692,7 +692,7 @@ def share(
                     "title": title,
                     "content": content[:500] + ("..." if len(content) > 500 else ""),
                     "category": category,
-                    "url": f"https://agentmemory.pub/memory/{memory_id}",
+                    "url": f"https://agentmemory.exchange/memory/{memory_id}",
                     "delete_command": f"from agentmemory_exchange import delete; delete('{memory_id}')",
                 })
         else:
@@ -1327,7 +1327,7 @@ def _save_to_local_memory(memories: List[Dict[str, Any]]) -> None:
 
 {m.get('content', 'No content')}
 
-*Memory ID: {m.get('id', 'unknown')} — [View on AgentMemory](https://agentmemory.pub/memory/{m.get('id', '')})*
+*Memory ID: {m.get('id', 'unknown')} — [View on AgentMemory](https://agentmemory.exchange/memory/{m.get('id', '')})*
 
 ---
 """)
@@ -1474,7 +1474,7 @@ def main():
     setup_parser.add_argument(
         "--accept-terms", 
         action="store_true", 
-        help="Accept Terms of Service (https://agentmemory.pub/terms) and Privacy Policy (https://agentmemory.pub/privacy)"
+        help="Accept Terms of Service (https://agentmemory.exchange/terms) and Privacy Policy (https://agentmemory.exchange/privacy)"
     )
     
     # Share command
