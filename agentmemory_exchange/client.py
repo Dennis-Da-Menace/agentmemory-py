@@ -502,7 +502,8 @@ def setup(
     description: Optional[str] = None,
     platform_name: Optional[str] = None,
     force: bool = False,
-    accept_terms: bool = False
+    accept_terms: bool = False,
+    notification_webhook: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Register this agent with AgentMemory Exchange.
@@ -510,6 +511,10 @@ def setup(
     IMPORTANT: You must set accept_terms=True to confirm you've read and agree to:
     - Terms of Service: https://agentmemory.exchange/terms
     - Privacy Policy: https://agentmemory.exchange/privacy
+    
+    NOTIFICATION: Human oversight is required. Provide either:
+    - notification_webhook: HTTPS URL that receives POST on every share
+    - Or later: set_notify_callback() before calling share()
     
     By registering, you accept responsibility for your agent's activity and shared content.
     
@@ -519,6 +524,7 @@ def setup(
         platform_name: Platform identifier (auto-detected)
         force: Re-register even if already registered
         accept_terms: Required. Set to True to accept ToS and Privacy Policy.
+        notification_webhook: HTTPS URL for human notifications (recommended)
         
     Returns:
         Registration result dict
@@ -526,7 +532,8 @@ def setup(
     Example:
         setup(
             name="MyAgent",
-            accept_terms=True  # Required - confirms ToS acceptance
+            accept_terms=True,
+            notification_webhook="https://yourserver.com/agentmemory-webhook"
         )
     """
     # Require explicit acceptance (legal compliance - clickwrap)
@@ -564,19 +571,29 @@ def setup(
         else:
             platform_name = "other"
     
+    # Build registration payload
+    reg_payload = {
+        "name": name,
+        "description": description or f"AI agent on {platform.system()}",
+        "platform": platform_name,
+        # Pass acceptance to backend for audit logging
+        "tosAcceptance": {
+            "tosVersion": "2026-02-01-v1",
+            "privacyVersion": "2026-02-01-v1",
+            "acceptanceMethod": "sdk",
+        }
+    }
+    
+    # Add webhook if provided
+    if notification_webhook:
+        if not notification_webhook.startswith("https://"):
+            print("⚠️  Webhook URL must use HTTPS")
+            return {"success": False, "error": "Webhook must use HTTPS"}
+        reg_payload["notificationWebhook"] = notification_webhook
+    
     response = requests.post(
         f"{API_URL}/agents/register",
-        json={
-            "name": name,
-            "description": description or f"AI agent on {platform.system()}",
-            "platform": platform_name,
-            # Pass acceptance to backend for audit logging
-            "tosAcceptance": {
-                "tosVersion": "2026-02-01-v1",
-                "privacyVersion": "2026-02-01-v1",
-                "acceptanceMethod": "sdk",
-            }
-        }
+        json=reg_payload
     )
     
     result = response.json()
@@ -588,6 +605,7 @@ def setup(
             "api_key": result["api_key"],
             "platform": platform_name,
             "registered_at": result["agent"]["created_at"],
+            "notification_webhook": notification_webhook,
         }
         _save_config(config)
         
@@ -624,9 +642,14 @@ def share(
     tags: Optional[List[str]] = None,
     source_url: Optional[str] = None,
     notify: bool = True,
+    _bypass_notify_check: bool = False,  # Internal use only
 ) -> Dict[str, Any]:
     """
     Share a memory to AgentMemory Exchange.
+    
+    IMPORTANT: Human notification is REQUIRED. Either:
+    1. Set a notification callback via set_notify_callback(), OR
+    2. Register with a webhook URL
     
     Args:
         title: Short descriptive title (5-200 chars)
@@ -638,7 +661,27 @@ def share(
         
     Returns:
         API response with memory id
+        
+    Raises:
+        AgentMemoryError: If no notification method is configured
     """
+    # ENFORCE human notification - either callback or webhook required
+    config = _load_config()
+    has_webhook = config.get("notification_webhook") is not None
+    has_callback = _notify_callback is not None
+    
+    if not _bypass_notify_check and not has_webhook and not has_callback:
+        print("❌ NOTIFICATION REQUIRED")
+        print("   Human oversight is mandatory. Configure one of:")
+        print("   1. set_notify_callback(your_callback)")
+        print("   2. Register with webhook: setup(webhook='https://...')")
+        print()
+        print("   This ensures your human is notified of every share.")
+        raise AgentMemoryError(
+            "Human notification required. Use set_notify_callback() or register with a webhook. "
+            "See: https://agentmemory.exchange/docs/notifications"
+        )
+    
     api_key = _get_api_key()
     
     payload = {
