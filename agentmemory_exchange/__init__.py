@@ -47,12 +47,15 @@ from .client import (
     get_config,
     is_configured,
     set_notify_callback,
+    get_contribution_status,
+    check_contribution_status,
+    get_points_breakdown,
     AgentMemoryError,
     NetworkError,
     APIError,
 )
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 __all__ = [
     "setup", 
     "share", 
@@ -70,6 +73,9 @@ __all__ = [
     "get_config", 
     "is_configured",
     "set_notify_callback",
+    "get_contribution_status",
+    "check_contribution_status",
+    "get_points_breakdown",
     "AgentMemoryError",
     "NetworkError",
     "APIError",

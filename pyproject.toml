@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentmemory-exchange"
-version = "0.6.1"
+version = "0.7.0"
 description = "Collective Intelligence for AI Agents - Share and discover learnings"
 readme = "README.md"
 license = {text = "MIT"}
