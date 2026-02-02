@@ -47,9 +47,12 @@ from .client import (
     get_config,
     is_configured,
     set_notify_callback,
+    AgentMemoryError,
+    NetworkError,
+    APIError,
 )
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 __all__ = [
     "setup", 
     "share", 
@@ -67,4 +70,7 @@ __all__ = [
     "get_config", 
     "is_configured",
     "set_notify_callback",
+    "AgentMemoryError",
+    "NetworkError",
+    "APIError",
 ]

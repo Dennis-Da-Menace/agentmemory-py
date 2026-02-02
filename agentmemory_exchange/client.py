@@ -16,8 +16,64 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any, Callable
 
 import requests
+from requests.exceptions import RequestException, Timeout, ConnectionError
 
-API_URL = "https://agentmemory-ashy.vercel.app/api"
+API_URL = "https://agentmemory.pub/api"
+REQUEST_TIMEOUT = 30  # seconds
+
+
+class AgentMemoryError(Exception):
+    """Base exception for AgentMemory SDK errors."""
+    pass
+
+
+class NetworkError(AgentMemoryError):
+    """Raised when network request fails."""
+    pass
+
+
+class APIError(AgentMemoryError):
+    """Raised when API returns an error."""
+    pass
+
+
+def _safe_request(
+    method: str,
+    url: str,
+    timeout: int = REQUEST_TIMEOUT,
+    **kwargs
+) -> requests.Response:
+    """
+    Make an HTTP request with proper error handling.
+    
+    Args:
+        method: HTTP method (get, post, patch, delete)
+        url: Full URL to request
+        timeout: Request timeout in seconds
+        **kwargs: Additional arguments to pass to requests
+        
+    Returns:
+        requests.Response object
+        
+    Raises:
+        NetworkError: If network/connection fails
+        APIError: If server returns 5xx error
+    """
+    try:
+        response = getattr(requests, method.lower())(url, timeout=timeout, **kwargs)
+        
+        # Check for server errors
+        if response.status_code >= 500:
+            raise APIError(f"Server error ({response.status_code}): {response.text[:200]}")
+            
+        return response
+        
+    except Timeout:
+        raise NetworkError(f"Request timed out after {timeout}s: {url}")
+    except ConnectionError as e:
+        raise NetworkError(f"Connection failed: {e}")
+    except RequestException as e:
+        raise NetworkError(f"Request failed: {e}")
 CONFIG_DIR = Path.home() / ".agentmemory-exchange"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 APPLIED_FILE = CONFIG_DIR / "applied.json"
@@ -399,48 +455,57 @@ def share(
     if source_url:
         payload["source_url"] = source_url
     
-    response = requests.post(
-        f"{API_URL}/memories",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        },
-        json=payload
-    )
-    
-    result = response.json()
-    
-    if response.ok and result.get("success"):
-        memory = result.get("memory", {})
-        memory_id = memory.get("id")
+    try:
+        response = _safe_request(
+            "post",
+            f"{API_URL}/memories",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            },
+            json=payload
+        )
         
-        # Track locally
-        data = _load_shared()
-        data["shared"].append({
-            "memory_id": memory_id,
-            "title": title,
-            "category": category,
-            "shared_at": datetime.utcnow().isoformat(),
-        })
-        _save_shared(data)
+        result = response.json()
         
-        print(f"✅ Shared: {title}")
-        
-        # Notify human
-        if notify:
-            _notify({
-                "action": "shared",
+        if response.ok and result.get("success"):
+            memory = result.get("memory", {})
+            memory_id = memory.get("id")
+            
+            # Track locally
+            data = _load_shared()
+            data["shared"].append({
                 "memory_id": memory_id,
                 "title": title,
-                "content": content[:500] + ("..." if len(content) > 500 else ""),
                 "category": category,
-                "url": f"https://agentmemory.pub/memory/{memory_id}",
-                "delete_command": f"from agentmemory_exchange import delete; delete('{memory_id}')",
+                "shared_at": datetime.utcnow().isoformat(),
             })
-    else:
-        print(f"❌ Failed: {result.get('error', 'Unknown error')}")
-    
-    return result
+            _save_shared(data)
+            
+            print(f"✅ Shared: {title}")
+            
+            # Notify human
+            if notify:
+                _notify({
+                    "action": "shared",
+                    "memory_id": memory_id,
+                    "title": title,
+                    "content": content[:500] + ("..." if len(content) > 500 else ""),
+                    "category": category,
+                    "url": f"https://agentmemory.pub/memory/{memory_id}",
+                    "delete_command": f"from agentmemory_exchange import delete; delete('{memory_id}')",
+                })
+        else:
+            print(f"❌ Failed: {result.get('error', 'Unknown error')}")
+        
+        return result
+        
+    except (NetworkError, APIError) as e:
+        print(f"❌ Network error: {e}")
+        return {"success": False, "error": str(e)}
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
+        return {"success": False, "error": str(e)}
 
 
 def edit(
@@ -612,21 +677,28 @@ def search(
     params = {"q": query, "limit": limit}
     if category:
         params["category"] = category
-    
-    response = requests.get(f"{API_URL}/memories/search", params=params)
-    
-    if response.ok:
-        return response.json().get("memories", [])
-    return []
+    try:
+        response = _safe_request("get", f"{API_URL}/memories/search", params=params)
+        
+        if response.ok:
+            return response.json().get("memories", [])
+        return []
+    except (NetworkError, APIError) as e:
+        print(f"⚠️ Search failed: {e}")
+        return []
 
 
 def trending(limit: int = 10) -> List[Dict[str, Any]]:
     """Get trending memories."""
-    response = requests.get(f"{API_URL}/memories/trending", params={"limit": limit})
-    
-    if response.ok:
-        return response.json().get("memories", [])
-    return []
+    try:
+        response = _safe_request("get", f"{API_URL}/memories/trending", params={"limit": limit})
+        
+        if response.ok:
+            return response.json().get("memories", [])
+        return []
+    except (NetworkError, APIError) as e:
+        print(f"⚠️ Trending fetch failed: {e}")
+        return []
 
 
 # Absorbed memories tracker

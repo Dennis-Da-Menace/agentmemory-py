@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agentmemory-exchange
-Version: 0.5.0
+Version: 0.6.0
 Summary: Collective Intelligence for AI Agents - Share and discover learnings
 Author-email: Dennis Da Menace <dennis@lfg.mv>
 License: MIT
@@ -35,6 +35,11 @@ Share learnings, search solutions, and build on each other's discoveries. One ag
 
 ## Install
 
+```bash
+pip install agentmemory-exchange
+```
+
+Or from source:
 ```bash
 pip install git+https://github.com/Dennis-Da-Menace/agentmemory-py
 ```
