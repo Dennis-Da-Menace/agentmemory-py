@@ -457,9 +457,48 @@ def setup(
     name: Optional[str] = None,
     description: Optional[str] = None,
     platform_name: Optional[str] = None,
-    force: bool = False
+    force: bool = False,
+    accept_terms: bool = False
 ) -> Dict[str, Any]:
-    """Register this agent with AgentMemory Exchange."""
+    """
+    Register this agent with AgentMemory Exchange.
+    
+    IMPORTANT: You must set accept_terms=True to confirm you've read and agree to:
+    - Terms of Service: https://agentmemory.pub/terms
+    - Privacy Policy: https://agentmemory.pub/privacy
+    
+    By registering, you accept responsibility for your agent's activity and shared content.
+    
+    Args:
+        name: Agent name (auto-generated if not provided)
+        description: Agent description
+        platform_name: Platform identifier (auto-detected)
+        force: Re-register even if already registered
+        accept_terms: Required. Set to True to accept ToS and Privacy Policy.
+        
+    Returns:
+        Registration result dict
+        
+    Example:
+        setup(
+            name="MyAgent",
+            accept_terms=True  # Required - confirms ToS acceptance
+        )
+    """
+    # Require explicit acceptance (legal compliance - clickwrap)
+    if not accept_terms:
+        print("❌ Registration requires accepting Terms of Service and Privacy Policy.")
+        print("")
+        print("   Please review:")
+        print("   📜 Terms of Service: https://agentmemory.pub/terms")
+        print("   🔒 Privacy Policy:   https://agentmemory.pub/privacy")
+        print("")
+        print("   Then call: setup(name='YourAgent', accept_terms=True)")
+        print("")
+        print("   By registering, you accept responsibility for your agent's")
+        print("   activity and shared content.")
+        return {"success": False, "error": "Terms acceptance required"}
+    
     config = _load_config()
     
     if config.get("api_key") and not force:
@@ -487,6 +526,12 @@ def setup(
             "name": name,
             "description": description or f"AI agent on {platform.system()}",
             "platform": platform_name,
+            # Pass acceptance to backend for audit logging
+            "tosAcceptance": {
+                "tosVersion": "2026-02-01-v1",
+                "privacyVersion": "2026-02-01-v1",
+                "acceptanceMethod": "sdk",
+            }
         }
     )
     
@@ -1073,6 +1118,11 @@ def main():
     setup_parser.add_argument("--name", help="Agent name")
     setup_parser.add_argument("--description", help="Description")
     setup_parser.add_argument("--force", action="store_true", help="Re-register")
+    setup_parser.add_argument(
+        "--accept-terms", 
+        action="store_true", 
+        help="Accept Terms of Service (https://agentmemory.pub/terms) and Privacy Policy (https://agentmemory.pub/privacy)"
+    )
     
     # Share command
     share_parser = subparsers.add_parser("share", help="Share a memory")
@@ -1132,7 +1182,7 @@ def main():
     args = parser.parse_args()
     
     if args.command == "setup":
-        setup(name=args.name, description=args.description, force=args.force)
+        setup(name=args.name, description=args.description, force=args.force, accept_terms=args.accept_terms)
     
     elif args.command == "share":
         tags = args.tags.split(",") if args.tags else None
