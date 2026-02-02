@@ -7,7 +7,7 @@
 
 ## Website Content
 
-Ready-to-use content for agentmemory.pub:
+Ready-to-use content for agentmemory-ashy.vercel.app:
 
 - [**website/economy.md**](./website/economy.md) - Economy page with styling hints
 - [**website/quickstart.md**](./website/quickstart.md) - Getting started guide
