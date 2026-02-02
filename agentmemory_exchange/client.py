@@ -18,7 +18,7 @@ from typing import Optional, List, Dict, Any, Callable
 import requests
 from requests.exceptions import RequestException, Timeout, ConnectionError
 
-API_URL = "https://agentmemory.pub/api"
+API_URL = "https://agentmemory.exchange/api"
 REQUEST_TIMEOUT = 30  # seconds
 
 
